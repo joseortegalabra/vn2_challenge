@@ -1,0 +1,73 @@
+[tool.poetry]
+name = "app"
+version = "0.0.0"
+description = "Data Science Project"
+authors = [
+    "..."
+    ]
+classifiers = [
+    "Programming Language :: Python :: 3.11"
+]
+
+packages = [
+    { include = "utils", from = "src"},
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.12"
+ipykernel = "^6.24.0"
+gitpython = ">=3.1.41"
+dotenv = "^0.9.9"
+
+numpy = ">=1.22.2"
+pandas = ">=2.2.2"
+seaborn = "^0.13.2"
+
+scipy = ">=1.11.0"
+statsmodels = ">=0.13.5"
+optuna = "^3.6.1"
+scikit-learn = "^1.5.2"
+lightgbm = "^4.3.0"
+prophet = ">=1.1.5"
+utilsforecast = ">=0.2.12"
+mlforecast = ">=1.0.2"
+hierarchicalforecast = "^1.2.1"
+sktime = "^0.36.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.0"
+pytest-mock = "^3.10.0"
+pytest-cov = "^4.0.0"
+debugpy = "^1.8.8"
+ruff = "^0.8.4"
+pyright = "^1.1.388"
+pre-commit = "^3.7.0"
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = "--verbose --junit-xml=report.xml --cov --cov-report=xml:coverage.xml"
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.format]
+exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+exclude = ["*.ipynb"]
+select =[
+  "E", # pycodestyle errors
+  "W", # pycodestyle warnings
+  "F", # pyflakes
+  "I", # isort
+  "C", # flake8-comprehensions
+  "S", # flake8-bandit
+]
+ignore = [
+
+]
