@@ -69,5 +69,6 @@ select =[
   "S", # flake8-bandit
 ]
 ignore = [
-
+    "S603",
+    "S607"
 ]
