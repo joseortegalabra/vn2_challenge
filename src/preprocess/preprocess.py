@@ -53,7 +53,6 @@ assert (
 ), f"Error: los valores nulos cambiaron ({number_null_melt_data} vs {number_null_raw_data})"
 
 del data_sales
-del data_in_stock
 
 
 """ 4. Eliminar valores nulos - solo los nulos hasta que aparece la serie """
@@ -131,14 +130,31 @@ cols = ["unique_id"] + [c for c in data_master.columns if c != "unique_id"]
 data_master = data_master[cols]
 
 
+# data_in_stock - generar unique_id
+# contiene las próximas 8 fechas que se deben forecastear para la competencia
+# puede ser útil para asegurar que no haya errores
+data_in_stock = data_in_stock.reset_index()
+data_in_stock["unique_id"] = (
+    data_in_stock["Store"].astype(str)
+    + "-"
+    + data_in_stock["Product"].astype(str)
+)
+
+cols = ["unique_id"] + [c for c in data_in_stock.columns if c != "unique_id"]
+data_in_stock = data_in_stock[cols]
+
+
 """ 7. Guardar datos """
 folder_output = "data/preprocess"
 
-# save data (data_sales, data_in_stock) (para entrenar fcst)
+# save data (data_sales) (para entrenar fcst)
 data.to_parquet(f"{folder_output}/data.parquet")
 
 # save data_state (para decidir cuánto pedir)
 data_state.to_parquet(f"{folder_output}/data_state.parquet")
+
+# save data_in_stock (contiene las próximas 8 fechas a forecastear)
+data_in_stock.to_parquet(f"{folder_output}/data_in_stock.parquet")
 
 # save data_master (para features exógenas para modelo - static)
 data_master.to_parquet(f"{folder_output}/data_master.parquet")

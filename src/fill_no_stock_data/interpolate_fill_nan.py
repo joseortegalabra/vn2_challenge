@@ -18,10 +18,10 @@ from utils.utils import read_preprocess_data, set_root_path
 set_root_path()
 
 
-""" 1. read raw data """
-# leer archivos raw entregados por la competencia
-data, data_state, data_master, data_submission = read_preprocess_data(
-    week_index="0", date_index="2024-04-08"
+""" 1. read "preprocess" data """
+# leer archivos "preprocess" generados en step anterior
+data, data_state, data_in_stock, data_master, data_submission = (
+    read_preprocess_data(week_index="0", date_index="2024-04-08")
 )
 
 
@@ -64,12 +64,19 @@ print(f"porcentaje de nulos: {info_percent_null} %")
 print("volumen total de ventas: ", data["y"].sum())
 
 
+"""
+TODO: falta validar si todas las series tienen todos sus valores
+desde su fecha de inicio hasta la última fecha registrada
+"""
+
+
 """ 3. Save data processed - lista para ser usada en modelamiento """
 # ojo se guardan también data_state, data_master aunque no hayan tenido cambios
 folder_output = "data/processed"
 
 data.to_parquet(f"{folder_output}/data.parquet")
 data_state.to_parquet(f"{folder_output}/data_state.parquet")
+data_in_stock.to_parquet(f"{folder_output}/data_in_stock.parquet")
 data_master.to_parquet(f"{folder_output}/data_master.parquet")
 data_submission.to_parquet(f"{folder_output}/data_submission.parquet")
 print("data processed saved!")

@@ -21,10 +21,10 @@ from utils.utils import read_preprocess_data, set_root_path
 # set root repo
 set_root_path()
 
-""" 1. read raw data """
-# leer archivos raw entregados por la competencia
-data, data_state, data_master, data_submission = read_preprocess_data(
-    week_index="0", date_index="2024-04-08"
+""" 1. read "preprocess" data """
+# leer archivos "preprocess" generados en step anterior
+data, data_state, data_in_stock, data_master, data_submission = (
+    read_preprocess_data(week_index="0", date_index="2024-04-08")
 )
 
 

@@ -93,6 +93,10 @@ def read_preprocess_data(week_index=None, date_index=None):
     # data_state (para decidir cuánto pedir)
     df_state = pd.read_parquet(f"{folder_data}/data_state.parquet")
 
+    # data_in_stock (contiene las proximas 8 fechas a forecast en competencia)
+    # útil para evitar errores
+    df_in_stock = pd.read_parquet(f"{folder_data}/data_in_stock.parquet")
+
     # data_master (para features exógenas para modelo - static)
     df_master = pd.read_parquet(f"{folder_data}/data_master.parquet")
 
@@ -100,4 +104,33 @@ def read_preprocess_data(week_index=None, date_index=None):
     df_submission = pd.read_parquet(f"{folder_data}/data_submission.parquet")
 
     print("data preprocess readed!")
-    return df, df_state, df_master, df_submission
+    return df, df_state, df_in_stock, df_master, df_submission
+
+
+def read_processed_data(week_index=None, date_index=None):
+    """
+    Read data generada en step "1_fill_no_stock_data".
+    Data processed - lista ser forecasteada y luego optimizar pedidos
+    TODO: aún no tengo claro si se sobreescribe o es necesario el
+    identificador de la semana
+    """
+    folder_data = "data/processed"
+
+    # data (data_sales, data_in_stock) (para entrenar fcst)
+    df = pd.read_parquet(f"{folder_data}/data.parquet")
+
+    # data_state (para decidir cuánto pedir)
+    df_state = pd.read_parquet(f"{folder_data}/data_state.parquet")
+
+    # data_in_stock (contiene las proximas 8 fechas a forecast en competencia)
+    # útil para evitar errores
+    df_in_stock = pd.read_parquet(f"{folder_data}/data_in_stock.parquet")
+
+    # data_master (para features exógenas para modelo - static)
+    df_master = pd.read_parquet(f"{folder_data}/data_master.parquet")
+
+    # data_submission (formato output)
+    df_submission = pd.read_parquet(f"{folder_data}/data_submission.parquet")
+
+    print("data preprocess readed!")
+    return df, df_state, df_in_stock, df_master, df_submission
