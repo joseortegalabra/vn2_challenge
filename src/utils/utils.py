@@ -77,3 +77,27 @@ def read_input_data(week_index, date_index):
 
     print("data raw readed!")
     return sales, state, in_stock, master, submission
+
+
+def read_preprocess_data(week_index=None, date_index=None):
+    """
+    Read data generada en step "0_preprocess"
+    TODO: aún no tengo claro si se sobreescribe o es necesario el
+    identificador de la semana
+    """
+    folder_data = "data/preprocess"
+
+    # data (data_sales, data_in_stock) (para entrenar fcst)
+    df = pd.read_parquet(f"{folder_data}/data.parquet")
+
+    # data_state (para decidir cuánto pedir)
+    df_state = pd.read_parquet(f"{folder_data}/data_state.parquet")
+
+    # data_master (para features exógenas para modelo - static)
+    df_master = pd.read_parquet(f"{folder_data}/data_master.parquet")
+
+    # data_submission (formato output)
+    df_submission = pd.read_parquet(f"{folder_data}/data_submission.parquet")
+
+    print("data preprocess readed!")
+    return df, df_state, df_master, df_submission
