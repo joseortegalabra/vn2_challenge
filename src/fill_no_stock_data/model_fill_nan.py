@@ -26,3 +26,6 @@ set_root_path()
 data, data_state, data_master, data_submission = read_preprocess_data(
     week_index="0", date_index="2024-04-08"
 )
+
+
+# %%
