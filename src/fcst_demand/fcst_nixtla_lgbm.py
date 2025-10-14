@@ -24,48 +24,77 @@ data, data_state, data_in_stock, data_master, data_submission = (
 
 
 """ 2. Definir params para forecast """
-horizonte_fcst = 8  # predicho las próximas X semanas
+horizonte_fcst = 2  # predicho las próximas X semanas
 
 # si es True, es porque se está desarrollando
 # y se dejan datos test para medir métricas
 develop = True
 
 
-'''
+""" 3. Definir qué es Train y Test. Genear columna que lo identidique"""
+data_copy = data.copy()
 
-""" 3. Definir corte train y test. Si es desarrollo, el test es REAL """
-if develop:
-    # definir fecha corte 90% train y 10% test
-    unique_dates = np.sort(data["ds"].unique())
-    cut_idx = int(len(unique_dates) * 0.9)
-    cut_date = unique_dates[cut_idx]
+# DEV
+# separar historia en train y test. para TEST se resta el horizonte
+if develop is True:
+    # obtener fechas futuras - test
+    # se resta de a 7 días, de esta forma cuadró con fechas en "data_in_stock"
+    last_date = data["ds"].max()
+    future_dates = []
+    for index in range(horizonte_fcst):
+        new_date = last_date - pd.Timedelta(days=7 * index)
+        future_dates.append(new_date)
 
-    # cortar datos para train y test
-    data_train = data[data["ds"] <= cut_date]
-    data_test = data[data["ds"] > cut_date]
-else:
-    # si es productivo - output competencia - usar todos los datos para train
-    data_train = data
-    data_test = pd.DataFrame()
+    # marcar las filas future. El resto es train
+    data.loc[data["ds"].isin(future_dates), "TRAIN_FUTURE"] = "FUTURE"
+    data["TRAIN_FUTURE"] = data["TRAIN_FUTURE"].fillna("TRAIN")
 
-# print info
-print("train shape: ", data_train.shape)
-print("test shape: ", data_test.shape)
-print("train min date: ", data_train["ds"].min())
-print("train max date: ", data_train["ds"].max())
-'''
 
-""" 4. """
+# PROD
+# agregar fechas futuras que se desconoce el real
+if develop is False:
+    # obtener fechas futuras
+    # OBS: se suma de a 7 días, de esta forma cuadró con fechas en "data_in_stock"
+    last_date = data["ds"].max()
+    future_dates = []
+    for index in range(1, horizonte_fcst + 1):
+        new_date = last_date + pd.Timedelta(days=7 * index)
+        future_dates.append(new_date)
+    future_dates_df = pd.DataFrame({"ds": future_dates})
 
-# prod
-# obtener la última fecha y sumar N fechas de acuerdo al horizonte fcst
-# test corresponde a las predicciones futuras que se desconoce el real
-last_date = data["ds"].max()
+    # hacer producto cartesiana de fechas futuras con "data"
+    unique_ids_info = data[["unique_id", "Store", "Product"]].drop_duplicates()
+    data_future = unique_ids_info.merge(future_dates_df, how="cross")
+    data_future["y"] = pd.NA
 
-future_dates = pd.date_range(
-    start=last_date + pd.Timedelta(days=7),
-    periods=horizonte_fcst,
-    freq="W",
-)
+    # agregar columna "TRAIN_FUTURE" para identificar el tipo de dataframe
+    data["TRAIN_FUTURE"] = "TRAIN"
+    data_future["TRAIN_FUTURE"] = "FUTURE"
 
-# generar dataframe test - por cada "unique_id"
+    # hacer el merge, agregar info futura
+    data = pd.concat([data, data_future], ignore_index=True)
+
+
+""" 3.b Print info """
+aux_data_train = data[data["TRAIN_FUTURE"] == "TRAIN"]
+aux_data_test = data[data["TRAIN_FUTURE"] == "FUTURE"]
+print("data shape: ", data.shape)
+print("data TRAIN shape: ", aux_data_train.shape)
+print("data TEST shape: ", aux_data_test.shape)
+
+print("TRAIN min date: ", aux_data_train["ds"].min())
+print("TRAIN max date: ", aux_data_train["ds"].max())
+
+print("TEST min date: ", aux_data_test["ds"].min())
+print("TEST max date: ", aux_data_test["ds"].max())
+
+del aux_data_train
+del aux_data_test
+
+
+""" 4. Generar features exógenas """
+pass
+
+print(data.shape)
+data.head()
+# %%

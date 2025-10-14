@@ -132,5 +132,5 @@ def read_processed_data(week_index=None, date_index=None):
     # data_submission (formato output)
     df_submission = pd.read_parquet(f"{folder_data}/data_submission.parquet")
 
-    print("data preprocess readed!")
+    print("data processed readed!")
     return df, df_state, df_in_stock, df_master, df_submission
