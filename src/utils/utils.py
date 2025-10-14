@@ -22,7 +22,7 @@ def set_root_path():
 
     ROOT = Path(repo_root)
     os.chdir(ROOT)
-    print(ROOT)
+    print(f"root path: {ROOT}")
 
 
 def read_input_data(week_index, date_index):
@@ -75,4 +75,5 @@ def read_input_data(week_index, date_index):
     )
     submission = pd.read_csv(path_submission).set_index(INDEX)
 
+    print("data raw readed!")
     return sales, state, in_stock, master, submission

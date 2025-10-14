@@ -33,6 +33,7 @@ utilsforecast = ">=0.2.12"
 mlforecast = ">=1.0.2"
 hierarchicalforecast = "^1.2.1"
 sktime = "^0.36.0"
+pyarrow = "^19.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -69,6 +70,9 @@ select =[
   "S", # flake8-bandit
 ]
 ignore = [
+    "I001",
     "S603",
-    "S607"
+    "S607",
+    "E501",
+    "S101"
 ]
