@@ -223,68 +223,90 @@ predictions = model_fcst.predict(
 #    h=horizonte_fcst, X_df=data_test_exog
 # )
 
-# si el fcst es negativo llevar a cero (se mantiene el valor FLOAT)
-predictions.loc[predictions["LGBMRegressor"] <= 0, "LGBMRegressor"] = 0
 
-# redondear predicción siempre hacia arriba
-predictions["LGBMRegressor_int"] = np.ceil(predictions["LGBMRegressor"])
-
-
-""" 10. Calcular métricas - SOLO APLICA PARA DEV """
+""" 10. Guardar forecast para ser utilizado en step de optimización
+guardar con el valor real y el valor predicho
+"""
+# 10.1
 # generar dataframe con real y predicho TRAIN
 
 # nixlta permite obtenerlos directamente con model.forecast_fitted_values()
-# aplicar mismas transformaciones, si menor a cero llevar a cero, llevar a int
 fitted_values_train = model_fcst.forecast_fitted_values()
 
-df_train_to_metrics = fitted_values_train.copy()
+df_fcst_output_train = fitted_values_train.copy()
 
-df_train_to_metrics = df_train_to_metrics.rename(columns={"y": "y_true"})
+df_fcst_output_train = df_fcst_output_train.rename(columns={"y": "y_true"})
 
-df_train_to_metrics.loc[
-    df_train_to_metrics["LGBMRegressor"] <= 0, "LGBMRegressor"
+# transformar fcst:
+# - si es menor a cero, llevar a cero
+# - redondear a int
+df_fcst_output_train.loc[
+    df_fcst_output_train["LGBMRegressor"] <= 0, "LGBMRegressor"
 ] = 0
-df_train_to_metrics["LGBMRegressor_int"] = np.ceil(
-    df_train_to_metrics["LGBMRegressor"]
+df_fcst_output_train["LGBMRegressor_int"] = np.ceil(
+    df_fcst_output_train["LGBMRegressor"]
 )
 
 
+# 10.2
 # generar dataframe con real y predicho TEST
 # ir a buscar df con forecast y df con los reales (en DEV se conocen)
-df_test_to_metrics = y_test_true.copy()
+df_fcst_output_test = y_test_true.copy()
 
-df_test_to_metrics = df_test_to_metrics.rename(columns={"y": "y_true"})
+df_fcst_output_test = df_fcst_output_test.rename(columns={"y": "y_true"})
 
-df_test_to_metrics = pd.merge(
-    df_test_to_metrics, predictions, on=["unique_id", "ds"], how="left"
+df_fcst_output_test = pd.merge(
+    df_fcst_output_test, predictions, on=["unique_id", "ds"], how="left"
+)
+
+# transformar fcst:
+# - si es menor a cero, llevar a cero
+# - redondear a int
+df_fcst_output_test.loc[
+    df_fcst_output_test["LGBMRegressor"] <= 0, "LGBMRegressor"
+] = 0
+df_fcst_output_test["LGBMRegressor_int"] = np.ceil(
+    df_fcst_output_test["LGBMRegressor"]
 )
 
 
+# 10.3
+# guardar forecast (real y fcst) generados (train y test)
+folder_output = "data/submission/fcst"
+
+df_fcst_output_train.to_parquet(
+    f"{folder_output}/df_fcst_output_train.parquet"
+)
+df_fcst_output_test.to_parquet(f"{folder_output}/df_fcst_output_test.parquet")
+
+
+""" 11. Calcular métricas - SOLO APLICA PARA DEV """
 # calcular MAE (con forecast decimal y con forecast int)
 
 # train
 mae_train = mean_absolute_error(
-    y_true=df_train_to_metrics["y_true"],
-    y_pred=df_train_to_metrics["LGBMRegressor"],
+    y_true=df_fcst_output_train["y_true"],
+    y_pred=df_fcst_output_train["LGBMRegressor"],
 )
 
 mae_train_int = mean_absolute_error(
-    y_true=df_train_to_metrics["y_true"],
-    y_pred=df_train_to_metrics["LGBMRegressor_int"],
+    y_true=df_fcst_output_train["y_true"],
+    y_pred=df_fcst_output_train["LGBMRegressor_int"],
 )
 
 # test
 mae_test = mean_absolute_error(
-    y_true=df_test_to_metrics["y_true"],
-    y_pred=df_test_to_metrics["LGBMRegressor"],
+    y_true=df_fcst_output_test["y_true"],
+    y_pred=df_fcst_output_test["LGBMRegressor"],
 )
 
 mae_test_int = mean_absolute_error(
-    y_true=df_test_to_metrics["y_true"],
-    y_pred=df_test_to_metrics["LGBMRegressor_int"],
+    y_true=df_fcst_output_test["y_true"],
+    y_pred=df_fcst_output_test["LGBMRegressor_int"],
 )
 
 # print
+print("METRICS GLOBAL")
 print("mae_train: ", mae_train)
 print("mae_train_int: ", mae_train_int)
 print("mae_test: ", mae_test)
