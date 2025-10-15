@@ -9,7 +9,6 @@ OJO:
 """
 
 import pandas as pd
-import numpy as np
 
 from utils.utils import read_processed_data, set_root_path
 from mlforecast import MLForecast
@@ -19,8 +18,6 @@ from mlforecast.lag_transforms import (
     RollingMean,
     SeasonalRollingMean,
 )
-from sklearn.metrics import mean_absolute_error
-
 
 # set root repo
 set_root_path()
@@ -124,7 +121,7 @@ assert set(list_unique_id_data_master) == set(
 del data_master
 
 
-""" 5. Generar features exógenas relacionadas a fechas """
+""" 5. Generar features exógenas """
 # indicar de qué semana es con respecto al mes (primera semana del mes, segunda, etc)
 data["week_of_month"] = data["ds"].apply(lambda d: (d.day - 1) // 7 + 1)
 
@@ -149,6 +146,10 @@ data_test_exog = data_test.copy()
 # guardar valores para comparar, solo útil en DEV
 y_test_true = data_test_exog[["unique_id", "ds", "y"]].copy()
 data_test_exog = data_test_exog.drop(columns="y")
+
+# eliminar features estáticas - solo se necesitan en TRAIN
+# OBS: según yo, se podrían repetir el valor como features exógenas
+data_test_exog = data_test_exog.drop(columns=list_columns_data_master)
 
 
 """ 8. Generar modelo """
@@ -202,7 +203,7 @@ model_fcst = MLForecast(
 # train
 model_fcst.fit(
     data_train,
-    static_features=[],
+    static_features=list_columns_data_master,
     # se habilita la opción para obtener los valores forecasteado para los datos de train
     fitted=True,
 )
@@ -211,82 +212,17 @@ model_fcst.fit(
 # model_fcst.ts.features_order_
 
 """ 9. Predecir con el modelo """
-# predecir
 predictions = model_fcst.predict(
     h=horizonte_fcst,
     X_df=data_test_exog,  # exógenas necesarias para predecir
     # new_df=data_train, # necesario cuando se entrena el modelo y se guarda y se hace inferencia con otros datos
 )
 
-# debugging - entender qué combinación faltó en data test exógena
-# debugging = model_fcst.get_missing_future(
-#    h=horizonte_fcst, X_df=data_test_exog
-# )
 
-# si el fcst es negativo llevar a cero (se mantiene el valor FLOAT)
-predictions.loc[predictions["LGBMRegressor"] <= 0, "LGBMRegressor"] = 0
-
-# redondear predicción siempre hacia arriba
-predictions["LGBMRegressor_int"] = np.ceil(predictions["LGBMRegressor"])
-
-
-""" 10. Calcular métricas - SOLO APLICA PARA DEV """
-# generar dataframe con real y predicho TRAIN
-
-# nixlta permite obtenerlos directamente con model.forecast_fitted_values()
-# aplicar mismas transformaciones, si menor a cero llevar a cero, llevar a int
-fitted_values_train = model_fcst.forecast_fitted_values()
-
-df_train_to_metrics = fitted_values_train.copy()
-
-df_train_to_metrics = df_train_to_metrics.rename(columns={"y": "y_true"})
-
-df_train_to_metrics.loc[
-    df_train_to_metrics["LGBMRegressor"] <= 0, "LGBMRegressor"
-] = 0
-df_train_to_metrics["LGBMRegressor_int"] = np.ceil(
-    df_train_to_metrics["LGBMRegressor"]
+# por qué se perdió algo
+debugging = model_fcst.get_missing_future(
+    h=horizonte_fcst, X_df=data_test_exog
 )
 
 
-# generar dataframe con real y predicho TEST
-# ir a buscar df con forecast y df con los reales (en DEV se conocen)
-df_test_to_metrics = y_test_true.copy()
-
-df_test_to_metrics = df_test_to_metrics.rename(columns={"y": "y_true"})
-
-df_test_to_metrics = pd.merge(
-    df_test_to_metrics, predictions, on=["unique_id", "ds"], how="left"
-)
-
-
-# calcular MAE (con forecast decimal y con forecast int)
-
-# train
-mae_train = mean_absolute_error(
-    y_true=df_train_to_metrics["y_true"],
-    y_pred=df_train_to_metrics["LGBMRegressor"],
-)
-
-mae_train_int = mean_absolute_error(
-    y_true=df_train_to_metrics["y_true"],
-    y_pred=df_train_to_metrics["LGBMRegressor_int"],
-)
-
-# test
-mae_test = mean_absolute_error(
-    y_true=df_test_to_metrics["y_true"],
-    y_pred=df_test_to_metrics["LGBMRegressor"],
-)
-
-mae_test_int = mean_absolute_error(
-    y_true=df_test_to_metrics["y_true"],
-    y_pred=df_test_to_metrics["LGBMRegressor_int"],
-)
-
-# print
-print("mae_train: ", mae_train)
-print("mae_train_int: ", mae_train_int)
-print("mae_test: ", mae_test)
-print("mae_test_int: ", mae_test_int)
 # %%
