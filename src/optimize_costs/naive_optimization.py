@@ -37,8 +37,8 @@ data_fcst_output_test = pd.read_parquet(
 )
 
 
-####
+#### comenzar a explorar manualmente si lo estoy haciendo bien
 data.head()
-
+data["ds"].max()
 
 data_fcst_output_train.head()
