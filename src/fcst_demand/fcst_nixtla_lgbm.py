@@ -34,7 +34,7 @@ data, data_state, data_in_stock, data_master, data_submission = (
 
 
 """ 2. Definir params para forecast """
-horizonte_fcst = 2  # predicho las próximas X semanas
+horizonte_fcst = 3  # predicho las próximas X semanas
 
 # si es True, es porque se está desarrollando
 # y se dejan datos test para medir métricas
