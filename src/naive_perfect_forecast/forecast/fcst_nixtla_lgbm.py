@@ -38,7 +38,7 @@ horizonte_fcst = 3  # predicho las próximas X semanas
 
 # si es True, es porque se está desarrollando
 # y se dejan datos test para medir métricas
-develop = True
+develop = False
 
 
 """ 3. Definir qué es Train y Test. Genear columna que lo identidique"""
