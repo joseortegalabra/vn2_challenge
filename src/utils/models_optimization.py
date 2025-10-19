@@ -95,15 +95,21 @@ def update_state_true_demand(
         next_df_state, df_fcst, on=["unique_id"], how="left"
     )
 
+    # agregar info adicional - valor real de demanda
+
     # print info costos
-    round_cost = next_df_state[["Holding Cost", "Shortage Cost"]].sum().sum()
-    cumulative_cost = (
+    info_holding_cost = next_df_state["Holding Cost"].sum().sum()
+    info_shortage_cost = next_df_state["Shortage Cost"].sum().sum()
+    info_round_cost = (
+        next_df_state[["Holding Cost", "Shortage Cost"]].sum().sum()
+    )
+    info_cumulative_cost = (
         next_df_state[["Cumulative Holding Cost", "Cumulative Shortage Cost"]]
         .sum()
         .sum()
     )
     print(
-        f"end week: {date_w1} // round_cost: {round_cost} // cumulative_cost: {cumulative_cost}"
+        f"end week: {date_w1} // holding_cost: {info_holding_cost} // shortage_cost: {info_shortage_cost}  // round_cost: {info_round_cost} // cumulative_cost: {info_cumulative_cost}"
     )
 
     # retornar el df state resultante de W1. cierre de la semana con la venta REAL
@@ -200,6 +206,5 @@ def rules_systems_orders_perfect_forecast(
 
     # generar output
     df_submission.loc[:, "0"] = np.array(orders_w1)
-    df_submission = df_submission.reset_index()
 
     return df_submission

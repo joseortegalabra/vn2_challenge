@@ -12,7 +12,7 @@ el tiempo de entrenamiento es muy corto
 import pandas as pd
 
 from utils.utils import read_processed_data, set_root_path
-
+from sklearn.metrics import mean_absolute_error
 
 from utils.models_fcst import split_train_test_using_column_mark
 from utils.models_fcst import train_predict_ts_mlforecast
@@ -193,4 +193,34 @@ data_fcst_real_train_backtest.to_parquet(
 data_fcst_real_test_backtest.to_parquet(
     f"{folder_output}/data_fcst_real_test_backtest.parquet"
 )
+
+
+""" 8. Calcular métricas """
+# calcular MAE (con forecast decimal y con forecast int)
+print("METRICS GLOBAL")
+
+# train - horizonte de fcst h=1
+mae_train = mean_absolute_error(
+    y_true=data_fcst_real_train_backtest["y_true"],
+    y_pred=data_fcst_real_train_backtest["forecast"],
+)
+mae_train_int = mean_absolute_error(
+    y_true=data_fcst_real_train_backtest["y_true"],
+    y_pred=data_fcst_real_train_backtest["forecast_int"],
+)
+print("mae_train: ", mae_train)
+print("mae_train_int: ", mae_train_int)
+
+
+# test - horizonte de fcst h=3
+mae_test = mean_absolute_error(
+    y_true=data_fcst_real_test_backtest["y_true"],
+    y_pred=data_fcst_real_test_backtest["forecast"],
+)
+mae_test_int = mean_absolute_error(
+    y_true=data_fcst_real_test_backtest["y_true"],
+    y_pred=data_fcst_real_test_backtest["forecast_int"],
+)
+print("mae_test: ", mae_test)
+print("mae_test_int: ", mae_test_int)
 # %%

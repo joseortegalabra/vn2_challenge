@@ -28,7 +28,6 @@ def set_root_path():
 def read_input_data(week_index, date_index):
     """
     Leer archivos input RAW. Retornar en single index
-    SOLO SUBMISSION SE RETORNA CON DOBLE INDEX, QUE ES EL FORMATO DE SALIDA
     Params input: para diferenciar a qué semana corresponde los archivos
     """
 
@@ -73,7 +72,7 @@ def read_input_data(week_index, date_index):
     path_submission = (
         f"{folder_data}/Week {week_index} - Submission Template.csv"
     )
-    submission = pd.read_csv(path_submission).set_index(INDEX)
+    submission = pd.read_csv(path_submission)
 
     print("data raw readed!")
     return sales, state, in_stock, master, submission

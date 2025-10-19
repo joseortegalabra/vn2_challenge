@@ -67,6 +67,9 @@ if develop:
 """ 5. Realizar FOR por cada ejecución del foreast y calcular ORDEN y
 calcular resultados YA QUE SE TIENE EL REAL
 - realizar orden en base al fcst y evaluar vs el real """
+# output donde se guarda todos los "state" resultante del backtest
+next_data_state_backtest = pd.DataFrame()
+
 
 # obtener listado con todas las ejecuciones del backtest
 list_ds_ejecuciones_fcst = (
@@ -75,39 +78,60 @@ list_ds_ejecuciones_fcst = (
 
 # for de cada una de las ejecuciones
 for date_week0 in list_ds_ejecuciones_fcst:
-    # print(date_week0)
-    date_week0 = list_ds_ejecuciones_fcst[0]  # TODO: luego cambiar al for
+    print(f"Semana w0: {date_week0}")
+
+    # filtrar forecast de la fecha de ejecución filtrada
+    data_fcst_real_test_backtest_filtered = data_fcst_real_test_backtest[
+        data_fcst_real_test_backtest["week0_update"] == date_week0
+    ]
+
+    """ 5. Dar formato forecast generado - fechas en las columnas """
+    # OJO: la data FILTERED de la ejecución DESEADA
+    data_fcst = format_forecast_to_optimization(
+        df_fcst_real=data_fcst_real_test_backtest_filtered,
+        df_state=previous_data_state,
+    )
+
+    """ 6. Tomar decisión CUÁNTO ORDENAR en LA SEMANA W1 """
+    # generar reglas - asume forecast perfectos y objetivo costo CERO en W+3"
+    data_submission = rules_systems_orders_perfect_forecast(
+        previous_df_state=previous_data_state,
+        df_fcst=data_fcst,
+        df_submission=data_submission,
+    )
+
+    """ 7. actualizar STATE CIERRE W1. USANDO LOS REALES DE VENTA """
+    next_data_state = update_state_true_demand(
+        df_fcst_real=data_fcst_real_test_backtest_filtered,
+        previous_df_state=previous_data_state,
+        df_order=data_submission,
+        df_fcst=data_fcst,
+    )
+
+    """ 8. Reemplazar previo state con el state nuevo """
+    # reemplazar state PREVIO (w0) con state fin de la semana (w1)
+    # continuar de forma iterativa
+    previous_data_state = next_data_state
+
+    """ 8. Append "next_state" en df que guarda "STATE" de cada ejecución del backtest - debugging - info """
+    next_data_state_aux = next_data_state.copy()
+    next_data_state_aux["week0_update"] = date_week0
+
+    next_data_state_backtest = pd.concat(
+        [next_data_state_backtest, next_data_state_aux],
+        ignore_index=False,
+    )
 
 
-# filtrar forecast de la fecha de ejecución filtrada
-data_fcst_real_test_backtest_filtered = data_fcst_real_test_backtest[
-    data_fcst_real_test_backtest["week0_update"] == date_week0
+""" 9. Guardar output backtest estrategia """
+folder_output = "data/submission/backtest"
+next_data_state_backtest.to_csv(
+    f"{folder_output}/next_data_state_backtest.csv"
+)
+
+# debugging - revisar un sku en especifico - ej el de mayor volumen
+unique_id_filter = "61-124"
+debugging_backtest = next_data_state_backtest[
+    next_data_state_backtest["unique_id"] == unique_id_filter
 ]
-
-""" 5. Dar formato forecast generado - fechas en las columnas """
-# OJO: la data FILTERED de la ejecución DESEADA
-data_fcst = format_forecast_to_optimization(
-    df_fcst_real=data_fcst_real_test_backtest_filtered,
-    df_state=previous_data_state,
-)
-
-""" 6. Tomar decisión CUÁNTO ORDENAR en LA SEMANA W1 """
-# generar reglas - asume forecast perfectos y objetivo costo CERO en W+3"
-data_submission = rules_systems_orders_perfect_forecast(
-    previous_df_state=previous_data_state,
-    df_fcst=data_fcst,
-    df_submission=data_submission,
-)
-
-
-""" 7. actualizar STATE CIERRE W1. USANDO LOS REALES DE VENTA """
-next_data_state = update_state_true_demand(
-    df_fcst_real=data_fcst_real_test_backtest_filtered,
-    previous_df_state=previous_data_state,
-    df_order=data_submission,
-    df_fcst=data_fcst,
-)
-
-""" 8. Reemplazar previo state con el state nuevo """
-previous_df_state = next_data_state
-# OBS: se puede guardar un registro histórico de state
+debugging_backtest.to_csv(f"{folder_output}/debugging_backtest.csv")
