@@ -7,6 +7,109 @@ import pandas as pd
 import numpy as np
 
 
+def update_state_true_demand(
+    previous_df_state, df_fcst_real, df_order, df_fcst
+):
+    """
+    Dado el estado previo (w0), la decisón de cuánto ordenar y la venta real,
+    ACTUALIZAR STATE CON EL QUE SE CIERRA LA SEMANA W1
+    (actualizando ventas, ventas no realizadas, productos en tránsito, etc)
+
+    Args:
+    df_fcst_real (DataFrame): df con el real y fcst. TEST. hasta horizonte h. INTERESA PARA EL REAL
+    previous_df_state (DataFrame): df con el state previo (semana w0)
+    df_order (DataFrame): df con el submission (la orden realizada en la semana w1)
+    df_fcst (DataFrame): df con los valores forecasteados (SOLO SE AGREGA POR INFORMATIVO)
+
+    Return:
+    next_df_state (DataFrame): df con el state resultante (semana w1), usando las ventas reales
+    """
+    previous_df_state = previous_df_state.copy()
+    df_fcst_real = df_fcst_real.copy()
+    df_order = df_order.copy()
+    df_fcst = df_fcst.copy()
+
+    # obtener real con el que cerró W1.
+    # CURVA DE DEMADA
+    # así si el fcst da MAL, la estrategia va a dar mal (sobre stock o substock)
+    date_w1 = df_fcst_real["ds"].min()
+    demand = df_fcst_real[df_fcst_real["ds"] == date_w1]
+    demand = demand[["unique_id", "ds", "y_true"]]
+
+    # ordenar la DEMANDA en el mismo orden que "state"
+    orden_unique_ids = previous_df_state["unique_id"].unique()
+    demand["unique_id"] = pd.Categorical(
+        demand["unique_id"], categories=orden_unique_ids, ordered=True
+    )
+    demand = demand.sort_values("unique_id").reset_index(drop=True)
+
+    ####### CREAR NEXT_DF_STATE #######
+    # generar dataframe next state y comenzar a completar columnas
+    next_df_state = previous_df_state[["unique_id", "Store", "Product"]].copy()
+
+    # inventario inicial
+    next_df_state["Start Inventory"] = (
+        previous_df_state["End Inventory"]
+        + previous_df_state["In Transit W+1"]
+    )
+
+    # ventas (mínimo entre la demanda y el stock disponible)
+    next_df_state["Sales"] = next_df_state["Start Inventory"].clip(
+        upper=demand["y_true"]
+    )
+
+    # ventas perdidas por no tener stock
+    next_df_state["Missed Sales"] = demand["y_true"] - next_df_state["Sales"]
+
+    # inventario final: inventario inicial - ventas
+    next_df_state["End Inventory"] = (
+        next_df_state["Start Inventory"] - next_df_state["Sales"]
+    )
+
+    # calcular en tránsito w+1 (lo que venía en tránsito w2 del estado previo)
+    next_df_state["In Transit W+1"] = previous_df_state["In Transit W+2"]
+
+    # calcular en tránsito w+2 (LA ORDEN DECIDIDA POR EL MODELO)
+    next_df_state["In Transit W+2"] = df_order["0"]
+
+    # calcular costos y costos acumulados
+    HOLDING_COST = 0.2
+    SHORTAGE_COST = 1
+    next_df_state["Holding Cost"] = (
+        next_df_state["End Inventory"] * HOLDING_COST
+    )
+    next_df_state["Shortage Cost"] = (
+        next_df_state["Missed Sales"] * SHORTAGE_COST
+    )
+    next_df_state["Cumulative Holding Cost"] = (
+        previous_df_state["Cumulative Holding Cost"]
+        + next_df_state["Holding Cost"]
+    )
+    next_df_state["Cumulative Shortage Cost"] = (
+        previous_df_state["Cumulative Shortage Cost"]
+        + next_df_state["Shortage Cost"]
+    )
+
+    # agregar columna adicional - SOLO INFORMATIVA - LOS VALORES FORECASTEADOS EN BACKTEST
+    next_df_state = pd.merge(
+        next_df_state, df_fcst, on=["unique_id"], how="left"
+    )
+
+    # print info costos
+    round_cost = next_df_state[["Holding Cost", "Shortage Cost"]].sum().sum()
+    cumulative_cost = (
+        next_df_state[["Cumulative Holding Cost", "Cumulative Shortage Cost"]]
+        .sum()
+        .sum()
+    )
+    print(
+        f"end week: {date_w1} // round_cost: {round_cost} // cumulative_cost: {cumulative_cost}"
+    )
+
+    # retornar el df state resultante de W1. cierre de la semana con la venta REAL
+    return next_df_state
+
+
 def format_forecast_to_optimization(df_fcst_real, df_state):
     """
     Dado un df con forecast con el formato "unique_id", "ds", "y"
@@ -35,11 +138,9 @@ def format_forecast_to_optimization(df_fcst_real, df_state):
 
     # Ordenar fcst en el mismo orden que previus_data_state
     orden_unique_ids = df_state["unique_id"].unique()
-
     df_fcst["unique_id"] = pd.Categorical(
         df_fcst["unique_id"], categories=orden_unique_ids, ordered=True
     )
-
     df_fcst = df_fcst.sort_values("unique_id").reset_index(drop=True)
 
     # AUX. Asegurar que state y fcst tienen el mismo orden de keys

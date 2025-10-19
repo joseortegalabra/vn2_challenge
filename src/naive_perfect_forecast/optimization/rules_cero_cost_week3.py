@@ -72,7 +72,7 @@ data_fcst = format_forecast_to_optimization(
 )
 
 
-""" 6. Tomar decisión ORDER DE LA SEMANA W1 """
+""" 6. Tomar decisión CUÁNTO ORDENAR en LA SEMANA W1 """
 # generar reglas - asume forecast perfectos y objetivo costo CERO en W+3"
 data_submission = rules_systems_orders_perfect_forecast(
     previous_df_state=previous_data_state,

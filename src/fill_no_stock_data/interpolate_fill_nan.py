@@ -39,11 +39,14 @@ print(f"porcentaje de nulos: {info_percent_null} %")
 print("volumen total de ventas: ", data_copy["y"].sum())
 
 
-# interpolar
+# interpolar. con valores enteros. que aproxime al entero más cercano
 data = data.sort_values(["unique_id", "ds"])
 
-data["y"] = data.groupby("unique_id")["y"].transform(
-    lambda x: x.interpolate(limit_direction="both")
+data["y"] = (
+    data.groupby("unique_id")["y"]
+    .transform(lambda x: x.interpolate(limit_direction="both"))
+    .round()
+    # .astype(int)
 )
 
 
