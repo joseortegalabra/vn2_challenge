@@ -31,10 +31,10 @@ data, data_state, data_in_stock, data_master, data_submission = (
 folder_fcst = "data/submission/fcst"
 
 data_fcst_output_train = pd.read_parquet(
-    f"{folder_fcst}/data_fcst_output_train.parquet"
+    f"{folder_fcst}/data_fcst_real_train.parquet"
 )
 data_fcst_output_test = pd.read_parquet(
-    f"{folder_fcst}/data_fcst_output_test.parquet"
+    f"{folder_fcst}/data_fcst_real_test.parquet"
 )
 
 """ 3. Definir params """
@@ -68,7 +68,7 @@ if develop:
 
 """ 5. Dar formato forecast generado - fechas en las columnas """
 # pivotear: filas: unique_id, columnas: ds, values: forecast
-values_y_fcst = "LGBMRegressor_int"
+values_y_fcst = "forecast_int"
 data_fcst = data_fcst_output_test.pivot(
     index="unique_id", columns="ds", values=values_y_fcst
 )

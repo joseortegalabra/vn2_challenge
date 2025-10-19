@@ -9,18 +9,12 @@ OJO:
 """
 
 import pandas as pd
-import numpy as np
 
 from utils.utils import read_processed_data, set_root_path
-from mlforecast import MLForecast
-import lightgbm as lgb
-
-from mlforecast.lag_transforms import (
-    RollingMean,
-    SeasonalRollingMean,
-)
 from sklearn.metrics import mean_absolute_error
 
+from utils.models_fcst import split_train_test_using_column_mark
+from utils.models_fcst import train_predict_ts_mlforecast
 
 # set root repo
 set_root_path()
@@ -34,14 +28,16 @@ data, data_state, data_in_stock, data_master, data_submission = (
 
 
 """ 2. Definir params para forecast """
-horizonte_fcst = 3  # predicho las próximas X semanas
+horizonte_fcst = 3
 
-# si es True, es porque se está desarrollando
-# y se dejan datos test para medir métricas
+# True: cuando se está haciendo pruebas/backtest/etc
+# False: productivo entrenando con toda la historia disponible. Output challenge
 develop = False
 
 
 """ 3. Definir qué es Train y Test. Genear columna que lo identidique"""
+# IMPORTANTE: SI ES PROD, EL DATA TEST, NO EXISTE POR LO QUE SE CREAN LAS FECHAS
+
 data_copy = data.copy()
 
 # DEV
@@ -85,23 +81,6 @@ if develop is False:
     data = pd.concat([data, data_future], ignore_index=True)
 
 
-""" 3.b Print info """
-aux_data_train = data[data["TRAIN_FUTURE"] == "TRAIN"]
-aux_data_test = data[data["TRAIN_FUTURE"] == "FUTURE"]
-print("data shape: ", data.shape)
-print("data TRAIN shape: ", aux_data_train.shape)
-print("data TEST shape: ", aux_data_test.shape)
-
-print("TRAIN min date: ", aux_data_train["ds"].min())
-print("TRAIN max date: ", aux_data_train["ds"].max())
-
-print("TEST min date: ", aux_data_test["ds"].min())
-print("TEST max date: ", aux_data_test["ds"].max())
-
-del aux_data_train
-del aux_data_test
-
-
 """ 4. Agregar columnas data_master. Static features """
 # listado de static features que se agregarán
 list_columns_data_master = data_master.columns.tolist()
@@ -129,188 +108,57 @@ del data_master
 data["week_of_month"] = data["ds"].apply(lambda d: (d.day - 1) // 7 + 1)
 
 
-""" 6. Separar en data train y data test """
-# separar por columna auxiliar que marca qué es train y qué es future
-mask_train = data["TRAIN_FUTURE"] == "TRAIN"
-data_train = data[mask_train]
-mask_test = data["TRAIN_FUTURE"] == "FUTURE"
-data_test = data[mask_test]
-
-# eliminar columnas auxiliares que no son fatures ni target
-list_columns_to_drop = ["TRAIN_FUTURE"]
-data_train = data_train.drop(columns=list_columns_to_drop)
-data_test = data_test.drop(columns=list_columns_to_drop)
-
-
-""" 7. Generar dataframe test - exógenas features - las necesarias para predecir """
-data_test_exog = data_test.copy()
-
-# eliminar columna y en data test. Lo que se busca predecir.
-# guardar valores para comparar, solo útil en DEV
-y_test_true = data_test_exog[["unique_id", "ds", "y"]].copy()
-data_test_exog = data_test_exog.drop(columns="y")
-
-
-""" 8. Generar modelo """
-# ejemplo M4 usando datos horarios: https://www.kaggle.com/code/lemuz90/m4-competition ejemplo M5 usando datos diario: https://www.kaggle.com/code/lemuz90/m5-mlforecast-eval
-
-# hiperparametros modelo LGBM - baseline y funciona bien
-params_lgbm = {
-    "verbose": -1,
-    "num_threads": 4,
-    "force_col_wise": True,
-    "num_leaves": 30,
-    "n_estimators": 350,
-    "random_state": 42,
-}
-
-# "hiperparámetros" features lags creados por nixtla
-# se prueba con un rezago de las ventas de los últimos 2 meses
-max_lags = 8
-list_lags = list(range(1, max_lags + 1))
-
-# crear modelo nixtla
-model_fcst = MLForecast(
-    models=[lgb.LGBMRegressor(**params_lgbm)],
-    freq="W-MON",  # semana comienza el lunes
-    lags=list_lags,
-    date_features=["month", "quarter", "week", "year"],
-    lag_transforms={
-        1: [
-            RollingMean(4),  # media movil 1 mes
-            RollingMean(8),  # media movil 2 meses
-            RollingMean(12),  # media movil 3 meses
-            SeasonalRollingMean(4, 4),  # estacionalidad mensual
-            # ExpandingMean(),  # depende de toda la historia, mejor no usar
-        ],
-        4: [
-            RollingMean(4),
-            RollingMean(8),
-            RollingMean(12),
-            SeasonalRollingMean(4, 4),  # estacionalidad mensual
-        ],
-        8: [
-            RollingMean(4),
-            RollingMean(8),
-            RollingMean(12),
-            SeasonalRollingMean(4, 4),  # estacionalidad mensual
-        ],
-    },
-    num_threads=-1,
-)
-
-# train
-model_fcst.fit(
-    data_train,
-    static_features=[],
-    # se habilita la opción para obtener los valores forecasteado para los datos de train
-    fitted=True,
-)
-
-# obs: mostrar las features usadas por el modelo
-# model_fcst.ts.features_order_
-
-""" 9. Predecir con el modelo """
-# predecir
-predictions = model_fcst.predict(
-    h=horizonte_fcst,
-    X_df=data_test_exog,  # exógenas necesarias para predecir
-    # new_df=data_train, # necesario cuando se entrena el modelo y se guarda y se hace inferencia con otros datos
-)
-
-# debugging - entender qué combinación faltó en data test exógena
-# debugging = model_fcst.get_missing_future(
-#    h=horizonte_fcst, X_df=data_test_exog
-# )
-
-
-""" 10. Guardar forecast para ser utilizado en step de optimización
-guardar con el valor real y el valor predicho
-"""
-# 10.1
-# generar dataframe con real y predicho TRAIN
-
-# nixlta permite obtenerlos directamente con model.forecast_fitted_values()
-fitted_values_train = model_fcst.forecast_fitted_values()
-
-data_fcst_output_train = fitted_values_train.copy()
-
-data_fcst_output_train = data_fcst_output_train.rename(columns={"y": "y_true"})
-
-# transformar fcst:
-# - si es menor a cero, llevar a cero
-# - redondear a int
-data_fcst_output_train.loc[
-    data_fcst_output_train["LGBMRegressor"] <= 0, "LGBMRegressor"
-] = 0
-data_fcst_output_train["LGBMRegressor_int"] = np.ceil(
-    data_fcst_output_train["LGBMRegressor"]
+""" 6. Separar en data train y data test. en base a columna "TRAIN_FUTURE" """
+data_train, data_test, data_test_exog = split_train_test_using_column_mark(
+    df=data, verbose=True
 )
 
 
-# 10.2
-# generar dataframe con real y predicho TEST
-# ir a buscar df con forecast y df con los reales (en DEV se conocen)
-data_fcst_output_test = y_test_true.copy()
-
-data_fcst_output_test = data_fcst_output_test.rename(columns={"y": "y_true"})
-
-data_fcst_output_test = pd.merge(
-    data_fcst_output_test, predictions, on=["unique_id", "ds"], how="left"
+""" 7. Generar modelo """
+# generar modelo, entrenar y predecir TRAIN y TEST/FUTURE
+data_fcst_real_train, data_fcst_real_test = train_predict_ts_mlforecast(
+    df_train=data_train,
+    df_test=data_test,
+    df_test_exog=data_test_exog,
+    horizonte_fcst=horizonte_fcst,
 )
 
-# transformar fcst:
-# - si es menor a cero, llevar a cero
-# - redondear a int
-data_fcst_output_test.loc[
-    data_fcst_output_test["LGBMRegressor"] <= 0, "LGBMRegressor"
-] = 0
-data_fcst_output_test["LGBMRegressor_int"] = np.ceil(
-    data_fcst_output_test["LGBMRegressor"]
-)
-
-
-# 10.3
 # guardar forecast (real y fcst) generados (train y test)
 folder_output = "data/submission/fcst"
 
-data_fcst_output_train.to_parquet(
-    f"{folder_output}/data_fcst_output_train.parquet"
+data_fcst_real_train.to_parquet(
+    f"{folder_output}/data_fcst_real_train.parquet"
 )
-data_fcst_output_test.to_parquet(
-    f"{folder_output}/data_fcst_output_test.parquet"
-)
+data_fcst_real_test.to_parquet(f"{folder_output}/data_fcst_real_test.parquet")
 
 
 """ 11. Calcular métricas - SOLO APLICA PARA DEV """
 # calcular MAE (con forecast decimal y con forecast int)
+print("METRICS GLOBAL")
 
 # train
 mae_train = mean_absolute_error(
-    y_true=data_fcst_output_train["y_true"],
-    y_pred=data_fcst_output_train["LGBMRegressor"],
+    y_true=data_fcst_real_train["y_true"],
+    y_pred=data_fcst_real_train["forecast"],
 )
-
 mae_train_int = mean_absolute_error(
-    y_true=data_fcst_output_train["y_true"],
-    y_pred=data_fcst_output_train["LGBMRegressor_int"],
+    y_true=data_fcst_real_train["y_true"],
+    y_pred=data_fcst_real_train["forecast_int"],
 )
-
-# test
-mae_test = mean_absolute_error(
-    y_true=data_fcst_output_test["y_true"],
-    y_pred=data_fcst_output_test["LGBMRegressor"],
-)
-
-mae_test_int = mean_absolute_error(
-    y_true=data_fcst_output_test["y_true"],
-    y_pred=data_fcst_output_test["LGBMRegressor_int"],
-)
-
-# print
-print("METRICS GLOBAL")
 print("mae_train: ", mae_train)
 print("mae_train_int: ", mae_train_int)
-print("mae_test: ", mae_test)
-print("mae_test_int: ", mae_test_int)
+
+
+# test - solo hay True cuando se está desarrollando
+if develop:
+    mae_test = mean_absolute_error(
+        y_true=data_fcst_real_test["y_true"],
+        y_pred=data_fcst_real_test["forecast"],
+    )
+    mae_test_int = mean_absolute_error(
+        y_true=data_fcst_real_test["y_true"],
+        y_pred=data_fcst_real_test["forecast_int"],
+    )
+    print("mae_test: ", mae_test)
+    print("mae_test_int: ", mae_test_int)
 # %%
