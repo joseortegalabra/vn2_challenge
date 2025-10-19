@@ -11,10 +11,11 @@ al de sobreestimar
 """
 
 import pandas as pd
-import numpy as np
 
 from utils.utils import read_processed_data, set_root_path
 
+from utils.models_optimization import format_forecast_to_optimization
+from utils.models_optimization import rules_systems_orders_perfect_forecast
 
 # set root repo
 set_root_path()
@@ -30,10 +31,10 @@ data, data_state, data_in_stock, data_master, data_submission = (
 """ 2. read forecast generados """
 folder_fcst = "data/submission/fcst"
 
-data_fcst_output_train = pd.read_parquet(
+data_fcst_real_train = pd.read_parquet(
     f"{folder_fcst}/data_fcst_real_train.parquet"
 )
-data_fcst_output_test = pd.read_parquet(
+data_fcst_real_test = pd.read_parquet(
     f"{folder_fcst}/data_fcst_real_test.parquet"
 )
 
@@ -55,7 +56,6 @@ previous_data_state = [
 ]
 previous_data_state = data_state[list_info + previous_data_state]
 
-
 # si es desarrollo - simplemente se leen el orden de las filas
 # se parte con inventario cero, cero tránsito w1, cero tránsito w2
 if develop:
@@ -67,70 +67,18 @@ if develop:
 
 
 """ 5. Dar formato forecast generado - fechas en las columnas """
-# pivotear: filas: unique_id, columnas: ds, values: forecast
-values_y_fcst = "forecast_int"
-data_fcst = data_fcst_output_test.pivot(
-    index="unique_id", columns="ds", values=values_y_fcst
-)
-
-# renombrar columnas fcst_w1, fcst_w2, fcst_w3
-data_fcst.columns = ["fcst_w1", "fcst_w2", "fcst_w3"]
-data_fcst = data_fcst.reset_index()
-
-
-""" 6. Ordenar fcst en el mismo orden que previus_data_state """
-orden_unique_ids = previous_data_state["unique_id"].unique()
-
-data_fcst["unique_id"] = pd.Categorical(
-    data_fcst["unique_id"], categories=orden_unique_ids, ordered=True
-)
-
-data_fcst = data_fcst.sort_values("unique_id").reset_index(drop=True)
-
-
-# AUX. Asegurar que state y fcst tienen el mismo orden de keys
-assert (
-    data_fcst["unique_id"].values == previous_data_state["unique_id"].values
-).all(), (
-    "¡Los unique_id no están alineados entre data_fcst y previous_data_state!"
+data_fcst = format_forecast_to_optimization(
+    df_fcst_real=data_fcst_real_test, df_state=previous_data_state
 )
 
 
-""" 6. generar reglas - asume forecast perfectos y objetivo costo CERO en W+3"""
-# crear variables con los nombres de acuerdo a la fórmula calculada
-initial_inventory_w1 = (
-    previous_data_state["End Inventory"]
-    + previous_data_state["In Transit W+1"]
+""" 6. Tomar decisión ORDER DE LA SEMANA W1 """
+# generar reglas - asume forecast perfectos y objetivo costo CERO en W+3"
+data_submission = rules_systems_orders_perfect_forecast(
+    previous_df_state=previous_data_state,
+    df_fcst=data_fcst,
+    df_submission=data_submission,
 )
-
-fcst_w1 = data_fcst["fcst_w1"]
-fcst_w2 = data_fcst["fcst_w2"]
-fcst_w3 = data_fcst["fcst_w3"]
-
-inventory_transit_w2 = previous_data_state["In Transit W+2"]
-
-min_initial_inventory_w1_fcst_w1 = -np.minimum(initial_inventory_w1, fcst_w1)
-
-
-###### generar regla calculo optimizado w3
-
-# variable con parte de los cálculos de forma auxiliar
-# inventario inicial - min(inventario inicial, fcst w1) + inventario transito w2
-left_part1 = (
-    initial_inventory_w1
-    - min_initial_inventory_w1_fcst_w1
-    + inventory_transit_w2
-)
-
-# calculo de ordenes w1 (semana de análisis)
-orders_w1 = fcst_w3 - left_part1 + np.minimum(left_part1, fcst_w2)
-
-# puede ser que la orden sea negativa, porque sobra inventario, se pasa a cero
-orders_w1 = orders_w1.clip(lower=0)
-
-# generar output
-data_submission.loc[:, "0"] = np.array(orders_w1)
-data_submission = data_submission.reset_index()
 
 # guardar
 foldet_orders = "data/submission/orders"
