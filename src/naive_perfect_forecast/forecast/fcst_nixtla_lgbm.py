@@ -32,7 +32,7 @@ horizonte_fcst = 3
 
 # True: cuando se está haciendo pruebas/backtest/etc
 # False: productivo entrenando con toda la historia disponible. Output challenge
-develop = True
+develop = False
 
 
 """ 3. Definir qué es Train y Test. Genear columna que lo identidique"""

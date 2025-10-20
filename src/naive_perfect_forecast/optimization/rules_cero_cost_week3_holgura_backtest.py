@@ -7,10 +7,11 @@ entrenamiento hasta dicha semana y luego el forecast hasta horizonte h=h
 inventario cada semana y obtener el costo de la estrategia (estrategia+forecast)
 
 - REGLA DEFINIR ORDEN:
-- forecast w+3
+- forecast w+3 + holgura MAE (agregar holgura para pedir extra volumen y disminuir el costo de shortage)
 """
 
 import pandas as pd
+import numpy as np
 
 from utils.utils import read_processed_data, set_root_path
 
@@ -38,6 +39,24 @@ data_fcst_real_train_backtest = pd.read_parquet(
 data_fcst_real_test_backtest = pd.read_parquet(
     f"{folder_fcst_backtest}/data_fcst_real_test_backtest.parquet"
 )
+
+
+""" 3. read MAE test - obtenido desde backtesting """
+# leer mae, transformar a integer y utilizar como holgura
+# columnas output "Store", "Product", "mae"
+folder_output = "data/submission/fcst"
+mae_serie_test = pd.read_parquet(f"{folder_output}/mae_serie_test.parquet")
+
+mae_holgura_unique_id = mae_serie_test[["unique_id", "mae"]]
+
+mae_holgura_unique_id[["Store", "Product"]] = (
+    mae_holgura_unique_id["unique_id"].str.split("-", expand=True).astype(int)
+)
+mae_holgura_unique_id = mae_holgura_unique_id.drop(columns="unique_id")
+
+mae_holgura_unique_id.loc[:, "mae"] = np.floor(mae_holgura_unique_id["mae"])
+mae_holgura_unique_id["mae"] = mae_holgura_unique_id["mae"].astype(int)
+
 
 """ 3. Definir params """
 # develop = True, entrenamiento, etc
@@ -102,6 +121,17 @@ for date_week0 in list_ds_ejecuciones_fcst:
         df_fcst=data_fcst,
         df_submission=data_submission,
     )
+
+    # al output submission que se basa en fcst w+3.
+    # Agregar holgura basada en el MAE de TEST al realizar backtest de 1 año aprox
+    data_submission = pd.merge(
+        data_submission,
+        mae_holgura_unique_id,
+        on=["Store", "Product"],
+        how="left",
+    )
+    data_submission["0"] = data_submission["0"] + data_submission["mae"]
+    data_submission = data_submission.drop(columns="mae")
 
     """ 7. actualizar STATE CIERRE W1. USANDO LOS REALES DE VENTA """
     next_data_state = update_state_true_demand(
