@@ -14,8 +14,13 @@ set_root_path()
 
 """ 1. read raw data """
 # leer archivos raw entregados por la competencia
+param_index_current_week = "1"
+param_value_current_date = "2024-04-15"
 data_sales, data_state, data_in_stock, data_master, data_submission = (
-    read_input_data(week_index="0", date_index="2024-04-08")
+    read_input_data(
+        week_index=param_index_current_week,
+        date_index=param_value_current_date,
+    )
 )
 
 
@@ -145,6 +150,8 @@ data_in_stock = data_in_stock[cols]
 
 
 """ 7. Guardar datos """
+# OJO IMPORTANTE: NO SE GUARDA FOTOS DE LA SEMANA EN CURSO, SE SOBREESCRIBE
+# ESTÁ HISTORIZADA LA DATA RAW (to_models) DE CADA SEMANA EN CASO DE NECESITARSE
 folder_output = "data/preprocess"
 
 # save data (data_sales) (para entrenar fcst)

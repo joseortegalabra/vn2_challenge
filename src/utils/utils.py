@@ -27,6 +27,7 @@ def set_root_path():
     print(f"root path: {ROOT}")
 
 
+######################################################################
 ####### GENRAR DATA RAW week0, week1, week2, etc #######
 # FUNCIONES PARA LEER DATA RAW WEEK0 Y DATA RAW INPUT SUBMISSIONS WEEK1,2,
 # ETC Y GENERAR RAW EN FORMATO PARA SER CONSUMIDOS EN CUALQUIER SEMANA
@@ -162,6 +163,7 @@ def update_raw_to_models(week_index):
     return f"data RAW week {week_index} to models creada!! "
 
 
+######################################################################
 def read_input_data(week_index, date_index):
     """
     Leer archivos input RAW. Retornar en single index
@@ -170,7 +172,7 @@ def read_input_data(week_index, date_index):
 
     # params fijos
     INDEX = ["Store", "Product"]
-    folder_data = "data/input"
+    folder_data = "data/input/to_models"
 
     # ----------------------------
     # files con filtro "week_index" y "date_index"
