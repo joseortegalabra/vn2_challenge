@@ -1,5 +1,7 @@
 # %%
 """
+OUTPUT FINAL SUBMISSION - FCST PERFECTO + HOLGURA BASADA EN MAE DE BACKTESTING
+
 Naive Optimization
 Basada en forecast y reglas
 - Como se predice la venta de las próximas 2 semanas, se puede calcular
@@ -24,8 +26,13 @@ set_root_path()
 
 """ 1. read "processed" data """
 # leer archivos "processed" generados en step anterior
+param_index_current_week = "1"
+param_value_current_date = "2024-04-15"
 data, data_state, data_in_stock, data_master, data_submission = (
-    read_processed_data(week_index="0", date_index="2024-04-08")
+    read_processed_data(
+        week_index=param_index_current_week,
+        date_index=param_value_current_date,
+    )
 )
 
 
@@ -59,7 +66,7 @@ mae_holgura_unique_id["mae"] = mae_holgura_unique_id["mae"].astype(int)
 
 """ 3. Definir params """
 # develop = True, entrenamiento, etc
-# develop = False: el productivo para generar ordenes para la semana deseada
+# develop = False: ---> PRODUCTIVO para generar ordenes para la semana deseada
 develop = False
 
 
@@ -112,8 +119,10 @@ data_submission = data_submission.drop(columns="mae")
 
 # guardar
 foldet_orders = "data/submission/orders"
-week_index = 1
-path_submission = f"{foldet_orders}/Week {week_index} - Submission.csv"
+week_index_submission = int(int(param_index_current_week) + 1)
+path_submission = (
+    f"{foldet_orders}/Week {week_index_submission} - Submission.csv"
+)
 data_submission.to_csv(path_submission, index=False)
 
 # revisar que se guardó
