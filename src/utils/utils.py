@@ -1,9 +1,11 @@
+# %%
 """
 General utils functions
 """
 
 import os
 import subprocess
+import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -23,6 +25,141 @@ def set_root_path():
     ROOT = Path(repo_root)
     os.chdir(ROOT)
     print(f"root path: {ROOT}")
+
+
+####### GENRAR DATA RAW week0, week1, week2, etc #######
+# FUNCIONES PARA LEER DATA RAW WEEK0 Y DATA RAW INPUT SUBMISSIONS WEEK1,2,
+# ETC Y GENERAR RAW EN FORMATO PARA SER CONSUMIDOS EN CUALQUIER SEMANA
+def init_raw_to_models_week0():
+    """
+    Copiar y pegar files de input en 'data/input/raw_start_week0' y
+    dejarlos en carpeta 'data/input/to_models' para ser procesados por modelos
+    """
+
+    set_root_path()
+
+    # Rutas de origen y destino
+    origen = "data/input/raw_start_week0"
+    destino = "data/input/to_models"
+
+    # Crear el destino si no existe
+    os.makedirs(destino, exist_ok=True)
+
+    # Recorrer los archivos del folder de origen
+    for archivo in os.listdir(origen):
+        ruta_origen = os.path.join(origen, archivo)
+        ruta_destino = os.path.join(destino, archivo)
+
+        # Solo copiar si es un archivo (no carpeta)
+        if os.path.isfile(ruta_origen):
+            shutil.copy2(ruta_origen, ruta_destino)
+
+    return "data week 0 - creada en folder data/input/to_models "
+
+
+def update_raw_to_models(week_index):
+    """
+    Actualizar datos raw to models.
+    Dado el valor de 'week_index' tomar los archivos de la semana pasada
+    (tanto raw como output de la submission previa) y actualizar raw
+    de la semana siguiente para poder ser utilizados por el modelo
+    """
+
+    ##################################################
+    # index previo
+    prev_week_index = week_index - 1
+
+    # valor fecha semana actual y previa
+    date_week0 = "2024-04-08"
+
+    date_prev_week = (
+        pd.to_datetime(date_week0) + pd.Timedelta(days=7 * prev_week_index)
+    ).strftime("%Y-%m-%d")
+
+    date_current_week = (
+        pd.to_datetime(date_week0) + pd.Timedelta(days=7 * week_index)
+    ).strftime("%Y-%m-%d")
+
+    ##################################################
+    ########## copiar y pegar archivos semana previa que no sufren modificación
+    set_root_path()
+
+    # copiar y pegar data in stock - cambiar index week
+    archivo_origen = (
+        f"data/input/to_models/Week {prev_week_index} - In Stock.csv"
+    )
+    carpeta_destino = "data/input/to_models"
+    nuevo_nombre = f"Week {week_index} - In Stock.csv"
+    # os.makedirs(carpeta_destino, exist_ok=True)
+    archivo_destino = os.path.join(carpeta_destino, nuevo_nombre)
+    shutil.copy2(archivo_origen, archivo_destino)
+
+    # copiar y pegar data master - cambiar index week
+    archivo_origen = (
+        f"data/input/to_models/Week {prev_week_index} - Master.csv"
+    )
+    carpeta_destino = "data/input/to_models"
+    nuevo_nombre = f"Week {week_index} - Master.csv"
+    # os.makedirs(carpeta_destino, exist_ok=True)
+    archivo_destino = os.path.join(carpeta_destino, nuevo_nombre)
+    shutil.copy2(archivo_origen, archivo_destino)
+
+    # copiar y pegar data submission template - cambiar index week
+    archivo_origen = f"data/input/to_models/Week {prev_week_index} - Submission Template.csv"
+    carpeta_destino = "data/input/to_models"
+    nuevo_nombre = f"Week {week_index} - Submission Template.csv"
+    # os.makedirs(carpeta_destino, exist_ok=True)
+    archivo_destino = os.path.join(carpeta_destino, nuevo_nombre)
+    shutil.copy2(archivo_origen, archivo_destino)
+
+    ##################################################
+    ########## Actualizar STATE con el output submission semana previa
+
+    # copiar y pegar state output del submission de semana previa
+    archivo_origen = (
+        f"data/input/raw_prev_submissions/output_salesw{week_index}.csv"
+    )
+    carpeta_destino = "data/input/to_models"
+    nuevo_nombre = (
+        f"Week {week_index} - {date_current_week} - Initial State.csv"
+    )
+    # os.makedirs(carpeta_destino, exist_ok=True)
+    archivo_destino = os.path.join(carpeta_destino, nuevo_nombre)
+    shutil.copy2(archivo_origen, archivo_destino)
+
+    ##################################################
+    ########## Actualizar Sales con la info de la nueva semana
+    # cargar sales existente, agregar una nueva columna con la nueva venta
+    # desde w1 en adelante (sales solo aparece en el nuevo state input)
+
+    # copiar y pegar sales - cambiar index week
+    archivo_origen = f"data/input/to_models/Week {prev_week_index} - {date_prev_week} - Sales.csv"
+    carpeta_destino = "data/input/to_models"
+    nuevo_nombre = f"Week {week_index} - {date_current_week} - Sales.csv"
+    # os.makedirs(carpeta_destino, exist_ok=True)
+    archivo_destino = os.path.join(carpeta_destino, nuevo_nombre)
+    shutil.copy2(archivo_origen, archivo_destino)
+
+    # leer archivo de sales y archivo state semana en curso
+    folder = "data/input/to_models/"
+    path_sales_current_week = (
+        folder + f"Week {week_index} - {date_current_week} - Sales.csv"
+    )
+    path_state_current_week = (
+        folder + f"Week {week_index} - {date_current_week} - Initial State.csv"
+    )
+    sales_current_week = pd.read_csv(path_sales_current_week)
+    state_current_week = pd.read_csv(path_state_current_week)
+
+    # actualizar SALES con la venta de la semana recién terminada
+    # obtenida del state output de la competición
+    sales_current_week.loc[:, date_current_week] = state_current_week["Sales"]
+
+    # guardar nuevo archivo
+    sales_current_week.to_csv(path_sales_current_week, index=False)
+
+    # output
+    return f"data RAW week {week_index} to models creada!! "
 
 
 def read_input_data(week_index, date_index):
