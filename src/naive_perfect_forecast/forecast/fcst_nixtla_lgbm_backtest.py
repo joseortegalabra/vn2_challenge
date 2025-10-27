@@ -23,8 +23,13 @@ set_root_path()
 
 """ 1. read "processed" data """
 # leer archivos "processed" generados en step anterior
+param_index_current_week = "1"
+param_value_current_date = "2024-04-15"
 data, data_state, data_in_stock, data_master, data_submission = (
-    read_processed_data(week_index="0", date_index="2024-04-08")
+    read_processed_data(
+        week_index=param_index_current_week,
+        date_index=param_value_current_date,
+    )
 )
 
 
