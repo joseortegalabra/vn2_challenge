@@ -20,8 +20,8 @@ set_root_path()
 
 """ 1. read "preprocess" data """
 # leer archivos "preprocess" generados en step anterior
-param_index_current_week = "1"
-param_value_current_date = "2024-04-15"
+param_index_current_week = "2"
+param_value_current_date = "2024-04-22"
 data, data_state, data_in_stock, data_master, data_submission = (
     read_preprocess_data(
         week_index=param_index_current_week,

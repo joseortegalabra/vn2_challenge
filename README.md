@@ -1,7 +1,8 @@
 # vn2_challenge
 Repo with code for VN2 competition
 
-Orden de ejecución carpeta SRC
+### Orden de ejecución carpeta SRC
+
 Orden 0: preproces
     - update_raw.py (cambiar manualmente el índice de la semana en curso)
     - preprocess.py
